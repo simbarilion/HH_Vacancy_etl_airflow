@@ -1,17 +1,17 @@
-from src.api.hh_api_service import HeadHunterAPI
-from src.database.hh_db_service import HeadHunterDBCreator
+from src.api.tv_api_service import TrudVsemAPI
+from src.database.tv_db_service import TrudVsemDBCreator
 
 
-class HeadHunterDataCoordinator:
+class TrudVsemDataCoordinator:
     """
     Связывает API и DB Creator, отвечает за workflow:
     получение данных, создание/заполнение БД
     """
 
     def __init__(self, db_name: str, key_word: str = "", max_pages: int = 5):
-        """Конструктор класса HeadHunterDataCoordinator"""
-        self.api = HeadHunterAPI(key_word, max_pages)
-        self.db_creator = HeadHunterDBCreator(db_name)
+        """Конструктор класса TrudVsemDataCoordinator"""
+        self.api = TrudVsemAPI(key_word, max_pages)
+        self.db_creator = TrudVsemDBCreator(db_name)
 
     def setup_database(self) -> None:
         print("Начинаю поиск")

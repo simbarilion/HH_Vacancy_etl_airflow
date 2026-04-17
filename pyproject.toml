@@ -10,6 +10,7 @@ requests = "^2.33.1"
 python-dotenv = "^1.2.2"
 logging = "^0.4.9.6"
 psycopg2 = "^2.9.11"
+curl-cffi = "^0.15.0"
 
 
 [build-system]

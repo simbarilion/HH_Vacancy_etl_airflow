@@ -1,17 +1,17 @@
-from src.api.hh_api_source import HeadHunterVacanciesSource
+from src.api.tv_api_source import TrudVsemVacanciesSource
 from src.models.vacancy import Vacancy
 
 
-class HeadHunterAPI:
-    """Получение вакансий и работодателей с HH.ru через API"""
+class TrudVsemAPI:
+    """Получение вакансий и работодателей с trudvsem.ru через API"""
 
     def __init__(self, key_word: str = "", max_pages: int = 5):
         self.max_pages = max_pages
         self.key_word = self.validate_key_word(key_word)
 
     def get_vacs_and_comps(self) -> tuple[list[Vacancy], dict]:
-        with HeadHunterVacanciesSource() as hh_vac:
-            return hh_vac.get_formatted_data(self.max_pages, self.key_word)
+        with TrudVsemVacanciesSource() as tv_vac:
+            return tv_vac.get_formatted_data(self.max_pages, self.key_word)
 
     @staticmethod
     def validate_key_word(key_word: str) -> str | None:

@@ -31,4 +31,4 @@ def config(filename: str = "database.ini", section: str = "postgresql") -> dict:
     return db_config
 
 def get_db_name() -> str:
-    return os.getenv("DB_NAME", "hh_vacancies_employers")
+    return os.getenv("DB_NAME", "tv_vacancies_employers")

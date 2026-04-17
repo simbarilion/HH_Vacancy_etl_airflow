@@ -7,26 +7,24 @@ from psycopg2.extras import execute_batch
 
 from config import config
 from src.logging_config import LoggingConfigClassMixin
-from src.models.employer import Employer
 from src.models.vacancy import Vacancy
 
 
-class HeadHunterDataBase(LoggingConfigClassMixin):
-    """Класс для создания базы данных с компаниями и вакансиями сайта HeadHunter.ru"""
+class TrudVsemDataBase(LoggingConfigClassMixin):
+    """Класс для создания базы данных trudvsem.ru (вакансии и работодатели)"""
 
-    def __init__(self, dbname: str = "headhunter_vacancies") -> None:
-        """Конструктор класса"""
+    def __init__(self, dbname: str = "trudvsem_vacancies") -> None:
         super().__init__()
         self._base_dbname: str = "postgres"
-        self._hh_dbname = dbname
+        self._tv_dbname = dbname
         self._params: dict = self._get_params()
         self._conn: Optional[connection] = None
         self.logger = self.configure()
 
-    def __enter__(self) -> "HeadHunterDataBase":
+    def __enter__(self) -> "TrudVsemDataBase":
         """Открывает соединение с базой данных"""
         try:
-            self._conn = psycopg2.connect(**self._params, dbname=self.hh_dbname)
+            self._conn = psycopg2.connect(**self._params, dbname=self.tv_dbname)
             self._conn.autocommit = False
             self.logger.info("Соединение с базой данных открыто")
             return self
@@ -41,15 +39,15 @@ class HeadHunterDataBase(LoggingConfigClassMixin):
             self.logger.info("Соединение с базой данных закрыто")
 
     @property
-    def hh_dbname(self) -> str:
+    def tv_dbname(self) -> str:
         """Возвращает название базы данных"""
-        return self._hh_dbname
+        return self._tv_dbname
 
     @property
     def conn(self) -> Any:
         """Объект conn - соединения с базой данных"""
         if not self._conn:
-            raise RuntimeError("DB connection not initialized")
+            raise RuntimeError("Соединение с базой данных не установлено")
         return self._conn
 
     def _execute(self, query: str, params: Optional[tuple] = None, fetch: bool = False) -> Any:
@@ -65,91 +63,108 @@ class HeadHunterDataBase(LoggingConfigClassMixin):
             raise
 
     def create_database(self) -> None:
-        """Создает базу данных для хранения данных о компаниях и вакансиях сайта HeadHunter.ru"""
+        """Создаёт базу данных, если она ещё не существует"""
         try:
             conn = psycopg2.connect(**self._params, dbname=self._base_dbname)
             conn.autocommit = True
             cur = conn.cursor()
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (self._hh_dbname,))
-            is_exists = cur.fetchone()
-            if is_exists:
-                cur.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(self.hh_dbname)))
-                self.logger.info(f"База данных {self.hh_dbname} удалена")
-            cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(self.hh_dbname)))
-            self.logger.info(f"База данных {self.hh_dbname} создана")
+            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (self._tv_dbname,))
+            exists = cur.fetchone()
+            if not exists:
+                cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(self.tv_dbname)))
+                self.logger.info(f"База данных '{self.tv_dbname}' успешно создана")
+            else:
+                self.logger.info(f"База данных '{self._tv_dbname}' уже существует")
         except psycopg2.Error as e:
             self.logger.error(f"Ошибка при создании базы данных: {e}")
             raise
+        finally:
+            if "conn" in locals():
+                conn.close()
 
-    def create_table_hh_companies(self) -> None:
-        """Создает таблицу для хранения данных о компаниях сайта HeadHunter.ru"""
+    def prepare_tables(self) -> None:
+        """Создаёт таблицы (если их нет) и очищает их от старых данных"""
+        self._create_tables_if_not_exists()
+        self._truncate_tables()
+        self.logger.info("Таблицы подготовлены (созданы/очищены)")
+
+    def _create_tables_if_not_exists(self) -> None:
+        """Создаёт таблицы только если они не существуют"""
+
         self._execute("""
-            CREATE TABLE hh_companies (
+            CREATE TABLE IF NOT EXISTS tv_companies (
                 company_id SERIAL PRIMARY KEY,
-                hh_employer_id VARCHAR UNIQUE,
+                tv_employer_id VARCHAR UNIQUE NOT NULL,
                 employer_name VARCHAR(255) NOT NULL,
                 employer_url TEXT NOT NULL
                 );
             """)
-        self.conn.commit()
-        self.logger.info("Tаблица hh_companies успешно создана")
+        self.logger.info("Tаблица tv_companies проверена/создана")
 
-    def create_table_hh_vacancies(self) -> None:
-        """Создает таблицу для хранения данных о вакансиях компаний сайта HeadHunter.ru"""
         self._execute("""
-            CREATE TABLE hh_vacancies (
+            CREATE TABLE IF NOT EXISTS tv_vacancies (
                 vacancy_id SERIAL PRIMARY KEY,
-                hh_vac_id VARCHAR UNIQUE NOT NULL,
+                tv_vac_id VARCHAR UNIQUE NOT NULL,
                 vac_name VARCHAR(255) NOT NULL,
                 vac_url TEXT NOT NULL,
-                hh_employer_id VARCHAR,
+                tv_employer_id VARCHAR,
                 vac_area TEXT,
                 salary_from INTEGER,
                 salary_to INTEGER,
                 average_salary NUMERIC GENERATED ALWAYS AS (
                     COALESCE((salary_from + salary_to) / 2, salary_from, salary_to)
                 ) STORED,
-                CONSTRAINT fk_hh_vacancies_hh_employer_id
-                FOREIGN KEY(hh_employer_id)
-                REFERENCES hh_companies(hh_employer_id)
+                CONSTRAINT fk_tv_vacancies_tv_employer_id
+                FOREIGN KEY(tv_employer_id)
+                REFERENCES tv_companies(tv_employer_id)
                 ON DELETE CASCADE
                 );
             """)
         self._execute("""
-            CREATE INDEX idx_vacancies_employer_id
-            ON hh_vacancies (hh_employer_id);
+            CREATE INDEX IF NOT EXISTS idx_vacancies_employer_id
+            ON tv_vacancies (tv_employer_id);
             """)
         self.conn.commit()
-        self.logger.info("Tаблица hh_vacancies успешно создана")
+        self.logger.info("Tаблица tv_vacancies проверена/создана")
+
+    def _truncate_tables(self) -> None:
+        """Полностью очищает таблицы перед загрузкой свежих данных"""
+        self._execute("TRUNCATE TABLE tv_vacancies RESTART IDENTITY CASCADE;")
+        self._execute("TRUNCATE TABLE tv_companies RESTART IDENTITY CASCADE;")
+
+        self.conn.commit()
+        self.logger.info("Таблицы tv_vacancies и tv_companies очищены")
 
     def _batch_insert(self, query: str, data: list[tuple]) -> None:
         """Универсальная массовая вставка данных"""
+        if not data:
+            return
         with self.conn:
             with self.conn.cursor() as cur:
                 execute_batch(cur, query, data)
 
-    def save_data_to_table_hh_companies(self, employers: dict) -> None:
-        """Сохранение данных о компаниях сайта HeadHunter.ru в базу данных"""
+    def save_data_to_table_tv_companies(self, employers: dict) -> None:
+        """Сохранение данных о компаниях в базу данных"""
         data = [(emp.employer_id, emp.name, emp.url) for emp in employers.values()]
         query = """
-            INSERT INTO hh_companies (hh_employer_id, employer_name, employer_url)
+            INSERT INTO tv_companies (tv_employer_id, employer_name, employer_url)
             VALUES (%s, %s, %s)
-            ON CONFLICT (hh_employer_id) DO NOTHING
+            ON CONFLICT (tv_employer_id) DO NOTHING
         """
         self._batch_insert(query, data)
         self.logger.info(f"Добавлено {len(data)} компаний")
 
-    def save_data_to_table_hh_vacancies(self, vacancies: list[Vacancy]) -> None:
-        """Сохранение данных о вакансиях компаний сайта HeadHunter.ru в базу данных"""
+    def save_data_to_table_tv_vacancies(self, vacancies: list[Vacancy]) -> None:
+        """Сохранение данных о вакансиях в базу данных"""
         data = [
             (vac.vac_id, vac.name, vac.url, vac.employer_id, vac.area, vac.salary_from, vac.salary_to)
             for vac in vacancies
         ]
         query = """
-            INSERT INTO hh_vacancies
-            (hh_vac_id, vac_name, vac_url, hh_employer_id, vac_area, salary_from, salary_to)
+            INSERT INTO tv_vacancies
+            (tv_vac_id, vac_name, vac_url, tv_employer_id, vac_area, salary_from, salary_to)
             VALUES (%s, %s, %s, %s, %s, COALESCE(%s,0), COALESCE(%s,0))
-            ON CONFLICT (hh_vac_id) DO NOTHING
+            ON CONFLICT (tv_vac_id) DO NOTHING
         """
         self._batch_insert(query, data)
         self.logger.info(f"Добавлено {len(data)} вакансий")
