@@ -29,3 +29,6 @@ def config(filename: str = "database.ini", section: str = "postgresql") -> dict:
     db_config["password"] = db_password
 
     return db_config
+
+def get_db_name() -> str:
+    return os.getenv("DB_NAME", "hh_vacancies_employers")
