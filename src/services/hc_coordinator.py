@@ -1,17 +1,17 @@
-from src.api.tv_api_service import TrudVsemAPI
-from src.database.tv_db_service import TrudVsemDBCreator
+from src.api.hc_api_service import HabrCareerHTMLAPI
+from src.database.hc_db_service import HabrCareerDBCreator
 
 
-class TrudVsemDataCoordinator:
+class HabrCareerDataCoordinator:
     """
     Связывает API и DB Creator, отвечает за workflow:
     получение данных, создание/заполнение БД
     """
 
     def __init__(self, db_name: str, key_word: str = "", max_pages: int = 5):
-        """Конструктор класса TrudVsemDataCoordinator"""
-        self.api = TrudVsemAPI(key_word, max_pages)
-        self.db_creator = TrudVsemDBCreator(db_name)
+        """Конструктор класса HabrCareerDataCoordinator"""
+        self.api = HabrCareerHTMLAPI(key_word, max_pages)
+        self.db_creator = HabrCareerDBCreator(db_name)
 
     def setup_database(self) -> None:
         print("Начинаю поиск")

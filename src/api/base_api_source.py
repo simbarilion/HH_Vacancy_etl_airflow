@@ -10,15 +10,16 @@ from src.logging_config import LoggingConfigClassMixin
 
 
 class BaseAPISource(ABC, LoggingConfigClassMixin):
-    """Базовый класс для работы с API с использованием curl_cffi (обход защиты)"""
+    """Базовый класс для парсинга сайтов (HTML) с использованием curl_cffi"""
     IMPERSONATE = "chrome131"
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
         "Accept-Encoding": "gzip, deflate, br",
-        "Referer": "https://trudvsem.ru/",
+        "Referer": "https://career.habr.com/",
+        "Cache-Control": "no-cache",
     }
 
     def __init__(self) -> None:
@@ -51,32 +52,22 @@ class BaseAPISource(ABC, LoggingConfigClassMixin):
                 pass
             del self.local.session  # удалить ссылку
 
-    def _get_response(self, url: str, params: dict, headers: Optional[dict] = None) -> Optional[dict]:
-        """Выполняет GET запрос через curl_cffi"""
+    def _get_response(self, url: str, params: dict, headers: Optional[dict] = None) -> Optional[str]:
+        """Возвращает HTML-текст страницы"""
         session = self._get_session()
         try:
             request_headers = {**self.HEADERS, **(headers or {})}
-            response = session.get(url, headers=request_headers, params=params, timeout=25, impersonate=self.IMPERSONATE)  # timeout на connect, read
+            response = session.get(url, headers=request_headers, params=params or {}, timeout=25, impersonate=self.IMPERSONATE)  # timeout на connect, read
             if response.status_code != 200:
-                self.logger.error(
+                self.logger.warning(
                     f"HTTP {response.status_code} | URL: {response.url} | "
                     f"Response: {response.text[:800]}..."
                 )
-                if response.status_code in (502, 503, 504):
-                    self.logger.info(f"Временная ошибка сервера {response.status_code}. Можно повторить позже.")
-                elif response.status_code >= 500:
-                    self.logger.error("Серверная ошибка (5xx)")
             response.raise_for_status()
-            result = response.json()
-            self.logger.debug(f"Успешно получен JSON (страница {params.get('page')})")
-            return result
+            return response.text
 
         except HTTPError as err:
-            status = getattr(err.response, 'status_code', None)
-            if status in (502, 503, 504):
-                self.logger.warning(f"Bad Gateway / Service Unavailable (статус {status}) — API временно недоступен")
-            else:
-                self.logger.error(f"HTTPError: {err} | Status: {status}")
+            self.logger.error(f"HTTPError: {err} | Status: {getattr(err.response, 'status_code', None)}")
         except Timeout:
             self.logger.error("Timeout при запросе к API")
         except RequestException as err:
