@@ -8,10 +8,10 @@ class HabrCareerDataCoordinator:
     получение данных, создание/заполнение БД
     """
 
-    def __init__(self, db_name: str, key_word: str = "", max_pages: int = 5):
+    def __init__(self, key_word: str = "", max_pages: int = 5):
         """Конструктор класса HabrCareerDataCoordinator"""
         self.api = HabrCareerHTMLAPI(key_word, max_pages)
-        self.db_creator = HabrCareerDBCreator(db_name)
+        self.db_creator = HabrCareerDBCreator()
 
     def setup_database(self) -> None:
         print("Начинаю поиск")

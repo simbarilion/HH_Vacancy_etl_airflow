@@ -4,10 +4,9 @@ from src.services.hc_coordinator import HabrCareerDataCoordinator
 
 def main() -> None:
     """Основная функция запуска программы"""
-    db_name = get_db_name()
     key_word = "".join(input("Фильтр: ключевое слово / фраза: ").lower())
     max_pages = int(input("Фильтр: количество страниц: "))
-    coordinator = HabrCareerDataCoordinator(db_name, key_word, max_pages)
+    coordinator = HabrCareerDataCoordinator(key_word, max_pages)
     coordinator.setup_database()
 
 if __name__ == "__main__":

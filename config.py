@@ -1,5 +1,4 @@
 import os
-from configparser import ConfigParser
 
 from dotenv import load_dotenv
 
@@ -15,7 +14,6 @@ def get_db_params() -> dict:
     return {
         "host": os.getenv("DB_HOST", "localhost"),
         "port": os.getenv("DB_PORT", "5432"),
-        "dbname": os.getenv("DB_NAME", "hc_vacancies_employers"),
         "user": os.getenv("DB_USER"),
         "password": os.getenv("DB_PASSWORD"),
     }
