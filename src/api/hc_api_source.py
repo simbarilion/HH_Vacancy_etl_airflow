@@ -160,7 +160,8 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
                 continue
         return vacancies, employers
 
-    def _parse_salary(self, salary_text: str) -> tuple[int, int]:
+    @staticmethod
+    def _parse_salary(salary_text: str) -> tuple[int, int]:
         """Парсит зарплату с Habr Career"""
         if not salary_text:
             return 0, 0
