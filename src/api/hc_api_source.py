@@ -23,20 +23,32 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
 
     async def get_formatted_data_async(self, max_pages: int = 5, key_word: str | None = None) -> tuple[list[Vacancy], dict]:
         """Получает все вакансии и работодателей"""
-        tasks = [
-            self._get_page_async(page, key_word)
-            for page in range(max_pages)
-        ]
-        results = await asyncio.gather(*tasks)
-
         all_vacancies: list[Vacancy] = []
         all_employers: dict = {}
+        batch_size = 5
+        empty_streak = 0
 
-        for vacancies, employers in results:
-            all_vacancies.extend(vacancies)
-            for emp_id, emp in employers.items():
-                if emp_id and emp_id not in all_employers:
-                    all_employers[emp_id] = emp
+        for start in range(0, max_pages, batch_size):
+            batch = list(range(start, min(start + batch_size, max_pages)))
+            tasks = [self._get_page_async(page, key_word) for page in batch]
+            results = await asyncio.gather(*tasks)
+
+            batch_has_data = False
+            for vacancies, employers in results:
+                if vacancies:
+                    batch_has_data = True
+                all_vacancies.extend(vacancies)
+                for emp_id, emp in employers.items():
+                    if emp_id and emp_id not in all_employers:
+                        all_employers[emp_id] = emp
+
+            if not batch_has_data:
+                empty_streak += 1
+            else:
+                empty_streak = 0
+            if empty_streak >= 1:
+                self.logger.info(f"Остановка на батче {batch}")
+                break
 
         self.logger.info(f"HabrCareer HTML. Всего вакансий: {len(all_vacancies)}")
         self.logger.info(f"HabrCareer HTML. Всего работодателей: {len(all_employers)}")

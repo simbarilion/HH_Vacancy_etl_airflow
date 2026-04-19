@@ -1,3 +1,4 @@
+import threading
 from abc import ABC, abstractmethod
 from json import JSONDecodeError
 from typing import Optional
@@ -20,32 +21,38 @@ class BaseAPISource(ABC, LoggingConfigClassMixin):
         "Referer": "https://career.habr.com/",
         "Cache-Control": "no-cache",
     }
+    POOL_SIZE = 5
 
     def __init__(self) -> None:
         super().__init__()
         self.logger = self.configure()
-        self.session = None
+        self.sessions = []
+        self._session_index = 0
+        self._lock = threading.Lock()
 
     def _create_session(self) -> curl_requests.Session:
         """Создаёт и настраивает session (вызывается 1 раз на поток)"""
         return curl_requests.Session(impersonate=self.IMPERSONATE)
 
     def __enter__(self):
-        self.session = self._create_session()
+        self.sessions = [self._create_session() for _ in range(self.POOL_SIZE)]
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
+        for s in self.sessions:
             try:
-                self.session.close()
+                s.close()
             except Exception:
                 pass
 
     def _get_session(self) -> curl_requests.Session:
         """Возвращает session для текущего потока"""
-        if not self.session:
+        if not self.sessions:
             raise RuntimeError("Session not initialized")
-        return self.session
+        with self._lock:
+            session = self.sessions[self._session_index]
+            self._session_index = (self._session_index + 1) % len(self.sessions)
+        return session
 
     def _get_response(self, url: str, params: dict, headers: Optional[dict] = None) -> Optional[str]:
         """Возвращает HTML-текст страницы"""
