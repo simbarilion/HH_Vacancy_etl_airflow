@@ -1,4 +1,3 @@
-from config import get_db_name
 from src.services.hc_coordinator import HabrCareerDataCoordinator
 
 
