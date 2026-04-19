@@ -1,4 +1,3 @@
-import threading
 from abc import ABC, abstractmethod
 from json import JSONDecodeError
 from typing import Optional
@@ -25,32 +24,28 @@ class BaseAPISource(ABC, LoggingConfigClassMixin):
     def __init__(self) -> None:
         super().__init__()
         self.logger = self.configure()
-        self.local = threading.local()
+        self.session = None
 
     def _create_session(self) -> curl_requests.Session:
         """Создаёт и настраивает session (вызывается 1 раз на поток)"""
         return curl_requests.Session(impersonate=self.IMPERSONATE)
 
     def __enter__(self):
+        self.session = self._create_session()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._close_session()
+        if self.session:
+            try:
+                self.session.close()
+            except Exception:
+                pass
 
     def _get_session(self) -> curl_requests.Session:
         """Возвращает session для текущего потока"""
-        if not hasattr(self.local, "session"):
-            self.local.session = self._create_session()
-        return self.local.session
-
-    def _close_session(self):
-        """Закрывает session текущего потока"""
-        if hasattr(self.local, "session"):
-            try:
-                self.local.session.close()
-            except Exception:
-                pass
-            del self.local.session  # удалить ссылку
+        if not self.session:
+            raise RuntimeError("Session not initialized")
+        return self.session
 
     def _get_response(self, url: str, params: dict, headers: Optional[dict] = None) -> Optional[str]:
         """Возвращает HTML-текст страницы"""
@@ -79,6 +74,6 @@ class BaseAPISource(ABC, LoggingConfigClassMixin):
         return None
 
     @abstractmethod
-    def get_formatted_data(self) -> list[dict]:
+    def get_formatted_data_async(self) -> list[dict]:
         """Возвращает список моделей данных"""
         pass

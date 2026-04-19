@@ -1,3 +1,5 @@
+import asyncio
+
 from src.api.hc_api_source import HabrCareerHTMLVacanciesSource
 from src.models.vacancy import Vacancy
 
@@ -11,5 +13,11 @@ class HabrCareerHTMLAPI:
 
     def get_vacs_and_comps(self) -> tuple[list[Vacancy], dict]:
         """Возвращает отформатированные данные о вакансиях и работодателях"""
-        with HabrCareerHTMLVacanciesSource() as hc_vac:
-            return hc_vac.get_formatted_data(self.max_pages, self.key_word)
+        return asyncio.run(self._run())
+
+    async def _run(self):
+        with HabrCareerHTMLVacanciesSource() as source:
+            return await source.get_formatted_data_async(
+                self.max_pages,
+                self.key_word
+            )

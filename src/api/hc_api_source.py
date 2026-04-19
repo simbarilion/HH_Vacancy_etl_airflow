@@ -1,6 +1,4 @@
-import time
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
+import asyncio
 import random
 import re
 
@@ -14,19 +12,25 @@ from src.models.vacancy import Vacancy
 class HabrCareerHTMLVacanciesSource(BaseAPISource):
     """Парсинг вакансий с career.habr.com"""
     BASE_URL = "https://career.habr.com/vacancies"
+    MAX_CONCURRENT = 5
+    MIN_DELAY = 0.6
+    MAX_DELAY = 1.8
 
     def __init__(self) -> None:
         super().__init__()
+        self.semaphore = asyncio.Semaphore(self.MAX_CONCURRENT)
         self.IMPERSONATE = "chrome131"
 
-    def get_formatted_data(self, max_pages: int = 5, key_word: str | None = None) -> tuple[list[Vacancy], dict]:
+    async def get_formatted_data_async(self, max_pages: int = 5, key_word: str | None = None) -> tuple[list[Vacancy], dict]:
         """Получает все вакансии и работодателей"""
+        tasks = [
+            self._get_page_async(page, key_word)
+            for page in range(max_pages)
+        ]
+        results = await asyncio.gather(*tasks)
+
         all_vacancies: list[Vacancy] = []
         all_employers: dict = {}
-        worker = partial(self._get_page, key_word=key_word)
-
-        with ThreadPoolExecutor(max_workers=1) as executor:  # запускает до 5 worker-потоков
-            results = executor.map(worker, range(max_pages))  # запросы идут параллельно
 
         for vacancies, employers in results:
             all_vacancies.extend(vacancies)
@@ -38,7 +42,21 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
         self.logger.info(f"HabrCareer HTML. Всего работодателей: {len(all_employers)}")
         return all_vacancies, all_employers
 
-    def _get_page(self, page: int, key_word: str | None = None) -> tuple[list[Vacancy], dict]:
+    async def _get_page_async(self, page: int, key_word: str) -> tuple[list[Vacancy], dict]:
+        for attempt in range(3):
+            async with self.semaphore:
+                try:
+                    await asyncio.sleep(random.uniform(self.MIN_DELAY, self.MAX_DELAY + attempt))
+                    return await asyncio.to_thread(
+                        self._get_page_sync,
+                        page,
+                        key_word
+                    )
+                except Exception:
+                    await asyncio.sleep(2 ** attempt)
+        return [], {}
+
+    def _get_page_sync(self, page: int, key_word: str | None = None) -> tuple[list[Vacancy], dict]:
         """Получает одну страницу через offset с вакансиями и работодателями"""
         vacancies: list[Vacancy] = []
         employers: dict = {}
@@ -47,7 +65,6 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
             "page": page + 1,  # на сайте пагинация начинается с 1
             "sort": "date"
         }
-        time.sleep(1.6 + page * 0.8 + random.uniform(0.5, 1.3))
 
         html_text = self._get_response(url=self.BASE_URL, params=params)
 
