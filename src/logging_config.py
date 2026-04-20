@@ -1,5 +1,6 @@
 import inspect
 import logging
+import os
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -38,6 +39,10 @@ class LoggingConfigClassMixin:
     def configure(self) -> logging.Logger:
         """Возвращает экземпляр логгера с заданной конфигурацией"""
         logger = logging.getLogger(self.name)
+
+        if "AIRFLOW_CTX_DAG_ID" in os.environ:
+            return logging.getLogger("airflow.task")
+
         logger.setLevel(self.level)
 
         if logger.hasHandlers():
