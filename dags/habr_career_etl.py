@@ -3,19 +3,24 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
-from src.api.hc_api_source import HabrCareerHTMLVacanciesSource
+from src.api.hc_json_source import HabrCareerJsonVacanciesSource
 from src.database.hc_db_service import HabrCareerDBCreator
+from src.notifications.telegram_notifier import TelegramNotifier
 
 
 def extract_and_transform(**context):
     """Задача 1: Асинхронный сбор и обработка данных"""
     import asyncio
 
+    params = context["params"]  # берём параметры из DAG
+    key_word = params.get("key_word", "python")
+    max_pages = params.get("max_pages", 25)
+
     async def _extract():
-        source = HabrCareerHTMLVacanciesSource()
+        source = HabrCareerJsonVacanciesSource()
         vacancies, companies = await source.get_formatted_data_async(
-            max_pages=30,
-            key_word="python"
+            max_pages=max_pages,
+            key_word=key_word
         )
 
         # Передаём данные через XCom
@@ -24,6 +29,7 @@ def extract_and_transform(**context):
         ti.xcom_push(key="companies", value=companies)
         ti.xcom_push(key="vacancies_count", value=len(vacancies))
         ti.xcom_push(key="companies_count", value=len(companies))
+        ti.xcom_push(key="key_word_used", value=key_word)
 
         return {"vacancies_count": len(vacancies), "companies_count": len(companies)}
 
@@ -52,17 +58,34 @@ def notify_success(**context):
     ti = context['ti']
     vac_count = ti.xcom_pull(task_ids="extract_and_transform", key="vacancies_count")
     comp_count = ti.xcom_pull(task_ids="extract_and_transform", key="companies_count")
+    key_word = ti.xcom_pull(task_ids="extract_and_transform", key="key_word_used")
 
-    print(f"   ETL Habr Career успешно завершён!")
-    print(f"   Вакансий загружено: {vac_count}")
-    print(f"   Работодателей: {comp_count}")
+    msg = f"""
+    ✅ <b>Habr Career ETL Успешно завершён</b>
 
+    Ключ: <code>{key_word}</code>
+    Вакансий: <b>{vac_count}</b>
+    Работодателей: <b>{comp_count}</b>
+        """.strip()
+
+    TelegramNotifier().send_message_sync(msg)
+    print(msg)
 
 def notify_failure(context):
     """Отправка уведомления при ошибке (можно в Telegram/Slack/почту)"""
-    print("Ошибка в ETL!")
-    print(f"Задача: {context['task_instance'].task_id}")
-    print(f"Ошибка: {context.get('exception')}")
+    task_instance = context['task_instance']
+    exception = context.get('exception')
+
+    error_msg = f"""
+    ❌ <b>Ошибка в ETL Habr Career</b>
+
+    <b>DAG:</b> {task_instance.dag_id}
+    <b>Задача:</b> {task_instance.task_id}
+    <b>Ошибка:</b> {exception}
+        """.strip()
+
+    TelegramNotifier().send_message_sync(error_msg)
+    print(error_msg)
 
 
 # DAG
@@ -75,7 +98,10 @@ with DAG(
             "retries": 3,
             "retry_delay": timedelta(minutes=5),
             "on_failure_callback": notify_failure,
-            "owner": "nadezhda",
+        },
+        params={
+            "key_word": "python",  # можно менять в Airflow UI
+            "max_pages": 30
         },
         tags=["habr", "vacancies", "etl"],
         max_active_runs=1,  # не запускать несколько одновременно

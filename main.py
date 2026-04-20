@@ -1,4 +1,4 @@
-from src.api.hc_api_source import HabrCareerHTMLVacanciesSource
+from src.api.hc_html_source import HabrCareerHTMLVacanciesSource
 from src.database.hc_db_service import HabrCareerDBCreator
 
 
