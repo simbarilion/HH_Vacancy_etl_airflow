@@ -18,9 +18,11 @@ def get_db_params() -> dict:
         "password": os.getenv("DB_PASSWORD"),
     }
 
+
 def get_db_name() -> str:
     """Возвращает только имя БД"""
     return os.getenv("DB_NAME", "hc_vacancies_employers")
+
 
 def get_db_base_name() -> str:
     """Имя системной базы, от которой создаём/удаляем БД"""

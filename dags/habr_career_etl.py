@@ -18,13 +18,10 @@ def extract_and_transform(**context):
 
     async def _extract():
         source = HabrCareerJsonVacanciesSource()
-        vacancies, companies = await source.get_formatted_data_async(
-            max_pages=max_pages,
-            key_word=key_word
-        )
+        vacancies, companies = await source.get_formatted_data_async(max_pages=max_pages, key_word=key_word)
 
         # Передаём данные через XCom
-        ti = context['ti']
+        ti = context["ti"]
         ti.xcom_push(key="vacancies", value=vacancies)
         ti.xcom_push(key="companies", value=companies)
         ti.xcom_push(key="vacancies_count", value=len(vacancies))
@@ -38,7 +35,7 @@ def extract_and_transform(**context):
 
 def load_to_postgres(**context):
     """Задача 2: Загрузка данных в PostgreSQL"""
-    ti = context['ti']
+    ti = context["ti"]
 
     # Получаем данные из XCom
     vacancies = ti.xcom_pull(task_ids="extract_and_transform", key="vacancies")
@@ -55,7 +52,7 @@ def load_to_postgres(**context):
 
 def notify_success(**context):
     """Задача 3: Уведомление об успешном завершении"""
-    ti = context['ti']
+    ti = context["ti"]
     vac_count = ti.xcom_pull(task_ids="extract_and_transform", key="vacancies_count")
     comp_count = ti.xcom_pull(task_ids="extract_and_transform", key="companies_count")
     key_word = ti.xcom_pull(task_ids="extract_and_transform", key="key_word_used")
@@ -71,10 +68,11 @@ def notify_success(**context):
     TelegramNotifier().send_message_sync(msg)
     print(msg)
 
+
 def notify_failure(context):
     """Отправка уведомления при ошибке (можно в Telegram/Slack/почту)"""
-    task_instance = context['task_instance']
-    exception = context.get('exception')
+    task_instance = context["task_instance"]
+    exception = context.get("exception")
 
     error_msg = f"""
     ❌ <b>Ошибка в ETL Habr Career</b>
@@ -90,21 +88,18 @@ def notify_failure(context):
 
 # DAG
 with DAG(
-        dag_id="habr_career_etl",
-        start_date=datetime(2026, 4, 1),
-        schedule_interval="0 3 * * *",  # каждый день в 3:00 ночи
-        catchup=False,
-        default_args={
-            "retries": 3,
-            "retry_delay": timedelta(minutes=5),
-            "on_failure_callback": notify_failure,
-        },
-        params={
-            "key_word": "python",  # можно менять в Airflow UI
-            "max_pages": 30
-        },
-        tags=["habr", "vacancies", "etl"],
-        max_active_runs=1,  # не запускать несколько одновременно
+    dag_id="habr_career_etl",
+    start_date=datetime(2026, 4, 1),
+    schedule_interval="0 3 * * *",  # каждый день в 3:00 ночи
+    catchup=False,
+    default_args={
+        "retries": 3,
+        "retry_delay": timedelta(minutes=5),
+        "on_failure_callback": notify_failure,
+    },
+    params={"key_word": "python", "max_pages": 30},  # можно менять в Airflow UI
+    tags=["habr", "vacancies", "etl"],
+    max_active_runs=1,  # не запускать несколько одновременно
 ) as dag:
     extract_task = PythonOperator(
         task_id="extract_and_transform",

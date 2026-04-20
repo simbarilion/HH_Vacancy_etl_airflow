@@ -4,17 +4,18 @@ from json import JSONDecodeError
 from typing import Optional
 
 from curl_cffi import requests as curl_requests
-from curl_cffi.requests.exceptions import HTTPError, Timeout, RequestException
+from curl_cffi.requests.exceptions import HTTPError, RequestException, Timeout
 
 from src.logging_config import LoggingConfigClassMixin
 
 
 class BaseAPISource(ABC, LoggingConfigClassMixin):
     """Базовый класс для парсинга сайтов (HTML) с использованием curl_cffi"""
+
     IMPERSONATE = "chrome131"
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
         "Accept-Encoding": "gzip, deflate, br",
@@ -59,11 +60,12 @@ class BaseAPISource(ABC, LoggingConfigClassMixin):
         session = self._get_session()
         try:
             request_headers = {**self.HEADERS, **(headers or {})}
-            response = session.get(url, headers=request_headers, params=params or {}, timeout=25, impersonate=self.IMPERSONATE)  # timeout на connect, read
+            response = session.get(
+                url, headers=request_headers, params=params or {}, timeout=25, impersonate=self.IMPERSONATE
+            )  # timeout на connect, read
             if response.status_code != 200:
                 self.logger.warning(
-                    f"HTTP {response.status_code} | URL: {response.url} | "
-                    f"Response: {response.text[:800]}..."
+                    f"HTTP {response.status_code} | URL: {response.url} | " f"Response: {response.text[:800]}..."
                 )
             response.raise_for_status()
             return response.text

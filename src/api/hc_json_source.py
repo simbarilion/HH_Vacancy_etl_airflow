@@ -21,7 +21,9 @@ class HabrCareerJsonVacanciesSource(LoggingConfigClassMixin):
         self.logger = self.configure()
         self.semaphore = asyncio.Semaphore(self.MAX_CONCURRENT)
 
-    async def get_formatted_data_async(self, max_pages: int = 30, key_word: str | None = None) -> tuple[list[Vacancy], dict]:
+    async def get_formatted_data_async(
+        self, max_pages: int = 30, key_word: str | None = None
+    ) -> tuple[list[Vacancy], dict]:
         """Основной публичный метод"""
         all_vacancies: list[Vacancy] = []
         all_employers: dict = {}
@@ -30,7 +32,7 @@ class HabrCareerJsonVacanciesSource(LoggingConfigClassMixin):
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+            "(KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
             "Referer": "https://career.habr.com/vacancies?q=python",
@@ -66,10 +68,14 @@ class HabrCareerJsonVacanciesSource(LoggingConfigClassMixin):
                     self.logger.info(f"Остановка на батче {batch} — больше вакансий нет")
                     break
 
-        self.logger.info(f"HabrCareer JSON. Всего вакансий: {len(all_vacancies)} | Работодателей: {len(all_employers)}")
+        self.logger.info(
+            f"HabrCareer JSON. Всего вакансий: {len(all_vacancies)} | Работодателей: {len(all_employers)}"
+        )
         return all_vacancies, all_employers
 
-    async def _get_page_async(self, client: httpx.AsyncClient, page: int, key_word: str | None) -> tuple[list[Vacancy], dict]:
+    async def _get_page_async(
+        self, client: httpx.AsyncClient, page: int, key_word: str | None
+    ) -> tuple[list[Vacancy], dict]:
         """Один запрос с retry"""
         for attempt in range(3):
             async with self.semaphore:
@@ -80,7 +86,7 @@ class HabrCareerJsonVacanciesSource(LoggingConfigClassMixin):
                         "page": page + 1,
                         "sort": "date",
                         "per_page": 25,
-                        "type": "all"
+                        "type": "all",
                     }
                     resp = await client.get(self.BASE_URL, params=params)
                     self.logger.info(f"Страница {page + 1}: статус {resp.status_code}, размер ответа {len(resp.text)}")
@@ -92,10 +98,10 @@ class HabrCareerJsonVacanciesSource(LoggingConfigClassMixin):
                     return self._parse_json_page(data, page)
 
                 except Exception as e:
-                    self.logger.warning(f"Попытка {attempt+1}/3 страницы {page+1} не удалась: {e}")
-                    await asyncio.sleep(2 ** attempt)
+                    self.logger.warning(f"Попытка {attempt + 1}/3 страницы {page + 1} не удалась: {e}")
+                    await asyncio.sleep(2**attempt)
 
-        self.logger.error(f"Не удалось загрузить страницу {page+1} после 3 попыток")
+        self.logger.error(f"Не удалось загрузить страницу {page + 1} после 3 попыток")
         return [], {}
 
     def _parse_json_page(self, data: dict, page: int) -> tuple[list[Vacancy], dict]:
@@ -139,24 +145,22 @@ class HabrCareerJsonVacanciesSource(LoggingConfigClassMixin):
                     continue
 
                 if employer_id not in employers:
-                    employers[employer_id] = Employer(
-                        employer_id=employer_id,
-                        name=employer_name,
-                        url=employer_url
-                    )
+                    employers[employer_id] = Employer(employer_id=employer_id, name=employer_name, url=employer_url)
 
-                vacancies.append(Vacancy(
-                    vac_id=vac_id,
-                    name=vac_name,
-                    url=vac_url,
-                    salary_from=int(salary_from) if salary_from else 0,
-                    salary_to=int(salary_to) if salary_to else 0,
-                    area=str(area).strip(),
-                    employer_id=employer_id,
-                ))
+                vacancies.append(
+                    Vacancy(
+                        vac_id=vac_id,
+                        name=vac_name,
+                        url=vac_url,
+                        salary_from=int(salary_from) if salary_from else 0,
+                        salary_to=int(salary_to) if salary_to else 0,
+                        area=str(area).strip(),
+                        employer_id=employer_id,
+                    )
+                )
 
             except Exception as e:
-                self.logger.debug(f"Ошибка парсинга вакансии #{page+1}: {e}")
+                self.logger.debug(f"Ошибка парсинга вакансии #{page + 1}: {e}")
                 continue
 
         return vacancies, employers

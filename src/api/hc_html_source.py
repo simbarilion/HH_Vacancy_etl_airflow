@@ -11,6 +11,7 @@ from src.models.vacancy import Vacancy
 
 class HabrCareerHTMLVacanciesSource(BaseAPISource):
     """Парсинг вакансий с career.habr.com"""
+
     BASE_URL = "https://career.habr.com/vacancies"
     MAX_CONCURRENT = 5
     MIN_DELAY = 0.6
@@ -21,7 +22,9 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
         self.semaphore = asyncio.Semaphore(self.MAX_CONCURRENT)
         self.IMPERSONATE = "chrome131"
 
-    async def get_formatted_data_async(self, max_pages: int = 5, key_word: str | None = None) -> tuple[list[Vacancy], dict]:
+    async def get_formatted_data_async(
+        self, max_pages: int = 5, key_word: str | None = None
+    ) -> tuple[list[Vacancy], dict]:
         """Получает все вакансии и работодателей"""
         all_vacancies: list[Vacancy] = []
         all_employers: dict = {}
@@ -59,24 +62,16 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
             async with self.semaphore:
                 try:
                     await asyncio.sleep(random.uniform(self.MIN_DELAY, self.MAX_DELAY + attempt))
-                    return await asyncio.to_thread(
-                        self._get_page_sync,
-                        page,
-                        key_word
-                    )
+                    return await asyncio.to_thread(self._get_page_sync, page, key_word)
                 except Exception:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
         return [], {}
 
     def _get_page_sync(self, page: int, key_word: str | None = None) -> tuple[list[Vacancy], dict]:
         """Получает одну страницу через offset с вакансиями и работодателями"""
         vacancies: list[Vacancy] = []
         employers: dict = {}
-        params = {
-            "q": key_word or "python",
-            "page": page + 1,  # на сайте пагинация начинается с 1
-            "sort": "date"
-        }
+        params = {"q": key_word or "python", "page": page + 1, "sort": "date"}  # на сайте пагинация начинается с 1
 
         html_text = self._get_response(url=self.BASE_URL, params=params)
 
@@ -96,7 +91,7 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
 
         for card in cards:
             try:
-                title_link = card.select_one("a.vacancy-card__title-link") # Название и ссылка
+                title_link = card.select_one("a.vacancy-card__title-link")  # Название и ссылка
                 if not title_link:
                     continue
                 relative_url = title_link.get("href", "").strip()
@@ -109,14 +104,15 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
                 company_link = card.select_one("div.vacancy-card__company a.link-comp")
                 employer_name = company_link.get_text(strip=True) if company_link else "Не указана"
                 employer_href = company_link.get("href", "") if company_link else ""
-                employer_id_match = re.search(r'/companies/(\d+)', employer_href)
+                employer_id_match = re.search(r"/companies/(\d+)", employer_href)
                 if employer_id_match:
                     employer_id = employer_id_match.group(1)
                 else:  # Если числового ID нет — берём slug и добавляем префикс
                     slug = employer_href.strip("/").split("/")[-1] if employer_href else ""
                     employer_id = f"habr_{slug}" if slug else f"habr_unknown_{hash(employer_name) % 100000}"
-                employer_url = f"https://career.habr.com{employer_href}" if employer_href.startswith(
-                    "/") else employer_href
+                employer_url = (
+                    f"https://career.habr.com{employer_href}" if employer_href.startswith("/") else employer_href
+                )
                 if not employer_name or employer_name == "Не указана":
                     continue
 
@@ -139,9 +135,7 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
                 if employer_id and employer_name:
                     if employer_id not in employers:
                         employers[employer_id] = Employer(
-                            employer_id=employer_id,
-                            name=employer_name,
-                            url=employer_url or ""
+                            employer_id=employer_id, name=employer_name, url=employer_url or ""
                         )
 
                 vacancies.append(
@@ -165,7 +159,7 @@ class HabrCareerHTMLVacanciesSource(BaseAPISource):
         """Парсит зарплату с Habr Career"""
         if not salary_text:
             return 0, 0
-        numbers = re.findall(r'\d+', salary_text.replace(' ', ''))
+        numbers = re.findall(r"\d+", salary_text.replace(" ", ""))
         numbers = [int(n) for n in numbers]
 
         if not numbers:

@@ -3,12 +3,12 @@ from typing import Any, Optional
 import psycopg2
 from psycopg2.extensions import connection
 
-from config import get_db_params, get_db_name
+from config import get_db_name, get_db_params
 from src.logging_config import LoggingConfigClassMixin
 
 
 class DataBaseConnector(LoggingConfigClassMixin):
-    """Класс для открытия\закрытия соединения с базой данных"""
+    """Класс для открытия, закрытия соединения с базой данных"""
 
     def __init__(self) -> None:
         super().__init__()

@@ -1,6 +1,5 @@
-import os
 import asyncio
-import logging
+import os
 
 import httpx
 from dotenv import load_dotenv
@@ -8,6 +7,7 @@ from dotenv import load_dotenv
 from src.logging_config import LoggingConfigClassMixin
 
 load_dotenv()
+
 
 class TelegramNotifier(LoggingConfigClassMixin):
     """Простой отправщик уведомлений в Telegram"""
@@ -32,7 +32,7 @@ class TelegramNotifier(LoggingConfigClassMixin):
             "chat_id": self.chat_id,
             "text": message,
             "parse_mode": parse_mode,
-            "disable_web_page_preview": True
+            "disable_web_page_preview": True,
         }
 
         try:

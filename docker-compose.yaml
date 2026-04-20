@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  db:
+    container_name: vacancies_db
+    image: postgres:16.0
+    environment:
+      POSTGRES_DB: hc_vacancies_employers
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  airflow-webserver:
+    image: apache/airflow:2.10.0-python3.12
+    container_name: airflow_webserver
+    command: webserver
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://postgres:${DB_PASSWORD}@db:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+      PYTHONPATH: /opt/airflow/project
+      AIRFLOW__WEBSERVER__SECRET_KEY: "temporary_secret_key_change_in_production"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - .:/opt/airflow/project
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  airflow-scheduler:
+    image: apache/airflow:2.10.0-python3.12
+    container_name: airflow_scheduler
+    command: scheduler
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://postgres:${DB_PASSWORD}@db:5432/airflow
+      PYTHONPATH: /opt/airflow/project
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - .:/opt/airflow/project
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  postgres_data:
