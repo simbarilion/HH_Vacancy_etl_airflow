@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator  # type: ignore
 
 from src.api.hc_json_source import HabrCareerJsonVacanciesSource
 from src.database.hc_db_service import HabrCareerDBCreator
@@ -12,9 +12,9 @@ def extract_and_transform(**context):
     """Задача 1: Асинхронный сбор и обработка данных"""
     import asyncio
 
-    params = context["params"]  # берём параметры из DAG
+    params = context.get('params', {})  # берём параметры из DAG
     key_word = params.get("key_word", "python")
-    max_pages = params.get("max_pages", 25)
+    max_pages = int(params.get("max_pages", 25))
 
     async def _extract():
         source = HabrCareerJsonVacanciesSource()
@@ -70,7 +70,7 @@ def notify_success(**context):
 
 
 def notify_failure(context):
-    """Отправка уведомления при ошибке (можно в Telegram/Slack/почту)"""
+    """Отправка уведомления при ошибке (Telegram)"""
     task_instance = context["task_instance"]
     exception = context.get("exception")
 
@@ -90,7 +90,7 @@ def notify_failure(context):
 with DAG(
     dag_id="habr_career_etl",
     start_date=datetime(2026, 4, 1),
-    schedule_interval="0 3 * * *",  # каждый день в 3:00 ночи
+    schedule="0 3 * * *",  # каждый день в 3:00 ночи
     catchup=False,
     default_args={
         "retries": 3,
