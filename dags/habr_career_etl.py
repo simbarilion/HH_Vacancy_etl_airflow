@@ -90,7 +90,7 @@ def notify_failure(context):
 with DAG(
     dag_id="habr_career_etl",
     start_date=datetime(2026, 4, 1),
-    schedule="0 3 * * *",  # каждый день в 3:00 ночи
+    schedule="1 3 * * *",  # каждый день в 13:00 дня
     catchup=False,
     default_args={
         "retries": 3,

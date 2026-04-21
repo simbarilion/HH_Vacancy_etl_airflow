@@ -105,7 +105,11 @@
     docker compose up db -d
 
 5. Создать базу Airflow
-    docker compose run --rm --entrypoint "" airflow-webserver airflow db init
+    docker compose exec db psql -U postgres
+    CREATE DATABASE airflow;
+    GRANT ALL PRIVILEGES ON DATABASE airflow TO postgres;
+    \q
+    docker compose run --rm --entrypoint "airflow db init" airflow-webserver
 
 6. Создать пользователя admin в Airflow (если не создан)
     docker compose run --rm --entrypoint "" airflow-webserver airflow users create \
