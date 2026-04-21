@@ -28,7 +28,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
       PYTHONPATH: /opt/airflow/project
-      AIRFLOW__WEBSERVER__SECRET_KEY: "temporary_secret_key_change_in_production"
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
