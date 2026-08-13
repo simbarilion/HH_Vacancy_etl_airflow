@@ -12,7 +12,7 @@ def extract_and_transform(**context):
     """Задача 1: Асинхронный сбор и обработка данных"""
     import asyncio
 
-    params = context.get('params', {})  # берём параметры из DAG
+    params = context.get("params", {})  # берём параметры из DAG
     key_word = params.get("key_word", "python")
     max_pages = int(params.get("max_pages", 25))
 
